@@ -127,5 +127,3 @@ The service was created manually in the Render dashboard:
 | Start command | `npm run start` |
 | Health check path | `/` |
 | Environment | `API_KEY`, `DATABASE_URL` (direct Neon connection string with `sslmode=require`) |
-
-Put the Render service in the region closest to the Neon database (Neon `us-east-2` is Render's Ohio), because each booking makes several queries. Don't set `NODE_ENV=production` during the build, because TypeScript is a dev dependency.
