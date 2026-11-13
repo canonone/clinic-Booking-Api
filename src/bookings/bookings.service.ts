@@ -1,29 +1,17 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { createHash } from 'crypto';
 import { DataSource, MoreThan, Repository } from 'typeorm';
 import { TooManyRequests } from '../common/exceptions/too-many-requests.exception';
+import { EMAIL_REGEX, RATE_LIMIT_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_SECONDS, UUID_REGEX } from '../common/utils/constants';
+import { hashBody } from '../common/utils/hash.util';
 import { Slot } from '../slots/entities/slot.entity';
 import { toBooking } from './booking.mapper';
 import { Booking } from './entities/booking.entity';
 import { IdempotencyKey } from './entities/idempotency-key.entity';
 import { BookingAttempt } from './entities/booking-attempt.entity';
-import { JsonValue } from '../common/types/json';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';
 import { BookingPageSchema, BookingResult, BookingSchema } from './schemas/booking.schema';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
-const WINDOW_SECONDS = 60;
-const MAX_ATTEMPTS = 5;
-
-/** JSON.stringify replacer that sorts object keys, so the hash ignores key order. */
-const sortKeys = (_key: string, v: JsonValue): JsonValue =>
-  v && typeof v === 'object' && !Array.isArray(v)
-    ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
-    : v;
-const hashBody = (b: CreateBookingDto | undefined) => createHash('sha256').update(JSON.stringify(b ?? null, sortKeys)).digest('hex');
 
 @Injectable()
 export class BookingsService {
@@ -59,14 +47,14 @@ export class BookingsService {
       // requests cannot all slip under the limit.
       if (email) {
         await m.query('SELECT pg_advisory_xact_lock(hashtext($1))', [email]);
-        await m.query(`DELETE FROM booking_attempts WHERE email = $1 AND at < clock_timestamp() - make_interval(secs => $2)`, [email, WINDOW_SECONDS]);
+        await m.query(`DELETE FROM booking_attempts WHERE email = $1 AND at < clock_timestamp() - make_interval(secs => $2)`, [email, RATE_LIMIT_WINDOW_SECONDS]);
         const [row] = await m.query(
           `SELECT count(*)::int AS n,
                   ceil(extract(epoch FROM (min(at) + make_interval(secs => $2) - clock_timestamp())))::int AS wait
            FROM booking_attempts WHERE email = $1`,
-          [email, WINDOW_SECONDS],
+          [email, RATE_LIMIT_WINDOW_SECONDS],
         );
-        if (row.n >= MAX_ATTEMPTS) throw new TooManyRequests(Math.max(1, row.wait ?? WINDOW_SECONDS));
+        if (row.n >= RATE_LIMIT_MAX_ATTEMPTS) throw new TooManyRequests(Math.max(1, row.wait ?? RATE_LIMIT_WINDOW_SECONDS));
         await m.insert(BookingAttempt, { email });
       }
 
@@ -84,7 +72,7 @@ export class BookingsService {
     if (!slotId) return bad('slot_id is required');
     if (!name) return bad('name is required');
     if (!email) return bad('email is required');
-    if (!EMAIL_RE.test(email)) return bad('email is not a valid email address');
+    if (!EMAIL_REGEX.test(email)) return bad('email is not a valid email address');
 
     const slot = await m.findOneBy(Slot, { id: slotId });
     if (!slot) return { status: 404, body: { error: 'slot not found' } };
@@ -104,13 +92,13 @@ export class BookingsService {
   }
 
   async get(id: string): Promise<BookingSchema> {
-    const b = UUID_RE.test(id) ? await this.bookings.findOneBy({ id }) : null; // non-uuid ids can't exist
+    const b = UUID_REGEX.test(id) ? await this.bookings.findOneBy({ id }) : null; // non-uuid ids can't exist
     if (!b) throw new NotFoundException('booking not found');
     return toBooking(b);
   }
 
   async cancel(id: string): Promise<BookingSchema> {
-    if (!UUID_RE.test(id)) throw new NotFoundException('booking not found');
+    if (!UUID_REGEX.test(id)) throw new NotFoundException('booking not found');
     const upd = await this.bookings.update({ id, status: 'confirmed' }, { status: 'cancelled' });
     const b = await this.bookings.findOneBy({ id });
     if (!b) throw new NotFoundException('booking not found');
