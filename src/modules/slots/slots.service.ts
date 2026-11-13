@@ -2,16 +2,18 @@ import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Slot } from './entities/slot.entity';
-import { ResetDto, SlotDto } from './dto/reset.dto';
-import { SlotSchema, SlotWithAvailabilitySchema } from './schemas/slot.schema';
-
-const isValidSlot = (s: SlotDto | null): s is SlotSchema =>
-  !!s && typeof s.id === 'string' && !!s.id && typeof s.provider === 'string' &&
-  typeof s.start === 'string' && !isNaN(Date.parse(s.start)) &&
-  typeof s.end === 'string' && !isNaN(Date.parse(s.end));
-
-const toEntity = (s: SlotSchema): Slot =>
-  Object.assign(new Slot(), { id: s.id, provider: s.provider, startAt: new Date(s.start), endAt: new Date(s.end), startRaw: s.start, endRaw: s.end });
+import { ResetDto } from './dto/reset.dto';
+import { SlotWithAvailabilitySchema } from './schemas/slot.schema';
+import { isValidSlot, toSlotEntity } from './utils/slot.util';
+import {
+  DAY_MS,
+  DEMO_DAYS,
+  DEMO_FIRST_SLOT_HOUR_UTC,
+  DEMO_PROVIDERS,
+  DEMO_SLOT_MINUTES,
+  DEMO_SLOTS_PER_DAY,
+  MINUTE_MS,
+} from '../../common/utils/constants';
 
 @Injectable()
 export class SlotsService implements OnModuleInit {
@@ -23,17 +25,17 @@ export class SlotsService implements OnModuleInit {
   /** Demo data so a fresh database has something to book. Safe if several instances boot at once. */
   async onModuleInit() {
     if ((await this.slots.count()) > 0) return;
-    const providers = ['Dr Ade', 'Dr Bello'];
+    const slotMs = DEMO_SLOT_MINUTES * MINUTE_MS;
     const base = new Date();
-    base.setUTCHours(9, 0, 0, 0);
+    base.setUTCHours(DEMO_FIRST_SLOT_HOUR_UTC, 0, 0, 0);
     const rows: Slot[] = [];
     let n = 1;
-    for (let d = 1; d <= 5; d++)
-      for (const provider of providers)
-        for (let h = 0; h < 4; h++) {
-          const start = new Date(base.getTime() + d * 86400000 + h * 1800000);
-          const end = new Date(start.getTime() + 1800000);
-          rows.push(toEntity({ id: `s${n++}`, provider, start: start.toISOString(), end: end.toISOString() }));
+    for (let d = 1; d <= DEMO_DAYS; d++)
+      for (const provider of DEMO_PROVIDERS)
+        for (let h = 0; h < DEMO_SLOTS_PER_DAY; h++) {
+          const start = new Date(base.getTime() + d * DAY_MS + h * slotMs);
+          const end = new Date(start.getTime() + slotMs);
+          rows.push(toSlotEntity({ id: `s${n++}`, provider, start: start.toISOString(), end: end.toISOString() }));
         }
     await this.slots.createQueryBuilder().insert().values(rows).orIgnore().execute();
   }
@@ -47,7 +49,7 @@ export class SlotsService implements OnModuleInit {
       if (!isValidSlot(s)) throw new BadRequestException('each slot needs id, provider, start and end (ISO date-times)');
       if (ids.has(s.id)) throw new BadRequestException(`duplicate slot id ${s.id}`);
       ids.add(s.id);
-      return toEntity(s);
+      return toSlotEntity(s);
     });
     await this.dataSource.transaction(async (m) => {
       await m.query('TRUNCATE bookings, idempotency_keys, booking_attempts, slots');
