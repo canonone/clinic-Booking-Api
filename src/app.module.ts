@@ -3,8 +3,8 @@ import { APP_FILTER } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JsonErrorFilter } from './common/filters/json-error.filter';
 import { typeOrmConfig } from './database/typeorm.config';
-import { SlotsModule } from './slots/slots.module';
-import { BookingsModule } from './bookings/bookings.module';
+import { SlotsModule } from './modules/slots/slots.module';
+import { BookingsModule } from './modules/bookings/bookings.module';
 
 @Module({
   imports: [TypeOrmModule.forRootAsync({ useFactory: typeOrmConfig }), SlotsModule, BookingsModule],

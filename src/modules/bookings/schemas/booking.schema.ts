@@ -1,4 +1,4 @@
-import { ErrorSchema } from '../../common/schemas/error.schema';
+import { ErrorSchema } from '../../../common/schemas/error.schema';
 
 /** Body of POST /bookings. */
 export interface NewBookingSchema {

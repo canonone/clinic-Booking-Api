@@ -1,5 +1,5 @@
 import { Column, Entity, PrimaryColumn } from 'typeorm';
-import { ErrorSchema } from '../../common/schemas/error.schema';
+import { ErrorSchema } from '../../../common/schemas/error.schema';
 import { BookingSchema } from '../schemas/booking.schema';
 
 @Entity('idempotency_keys')

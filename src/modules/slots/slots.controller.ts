@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiKeyGuard } from '../common/guards/api-key.guard';
+import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { ResetDto } from './dto/reset.dto';
 import { SlotsService } from './slots.service';
 

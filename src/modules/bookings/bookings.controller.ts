@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Headers, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
-import { ApiKeyGuard } from '../common/guards/api-key.guard';
+import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';

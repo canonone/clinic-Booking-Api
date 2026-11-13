@@ -1,9 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, MoreThan, Repository } from 'typeorm';
-import { TooManyRequests } from '../common/exceptions/too-many-requests.exception';
-import { EMAIL_REGEX, RATE_LIMIT_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_SECONDS, UUID_REGEX } from '../common/utils/constants';
-import { hashBody } from '../common/utils/hash.util';
+import { TooManyRequests } from '../../common/exceptions/too-many-requests.exception';
+import { EMAIL_REGEX, RATE_LIMIT_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_SECONDS, UUID_REGEX } from '../../common/utils/constants';
+import { hashBody } from '../../common/utils/hash.util';
 import { Slot } from '../slots/entities/slot.entity';
 import { toBooking } from './booking.mapper';
 import { Booking } from './entities/booking.entity';
